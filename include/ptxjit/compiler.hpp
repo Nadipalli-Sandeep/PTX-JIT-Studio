@@ -10,5 +10,7 @@ struct CompileResult {
     int original_node_count = 0;
     int optimized_node_count = 0;
 };
+
 CompileResult compile_expression(const std::string& expression);
+float evaluate_expression(const std::string& expression, float x);
 }

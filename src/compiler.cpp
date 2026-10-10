@@ -201,7 +201,37 @@ public:
             "    ret;\n}\n";
     }
 };
+
+float eval_node(const Node& n, float x) {
+    if (n.kind == Node::Kind::Constant)
+        return n.value;
+
+    if (n.kind == Node::Kind::Variable)
+        return x;
+
+    const float a = eval_node(*n.left, x);
+    const float b = eval_node(*n.right, x);
+
+    switch (n.op) {
+        case '+': return a + b;
+        case '-': return a - b;
+        case '*': return a * b;
+        case '/':
+            if (b == 0.0f)
+                throw std::runtime_error("Division by zero during evaluation");
+            return a / b;
+        default:
+            throw std::runtime_error("Unsupported operator");
+    }
 }
+}
+
+float evaluate_expression(const std::string& expression, float x) {
+    Parser parser(expression);
+    auto ast = parser.parse();
+    return eval_node(*ast, x);
+}
+
 CompileResult compile_expression(const std::string& expression) {
     Parser p(expression);
     auto ast = p.parse();

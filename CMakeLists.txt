@@ -25,4 +25,7 @@ find_library(CUDA_DRIVER_LIBRARY cuda
 
 add_executable(gpu_runner src/gpu_runner.cpp)
 target_include_directories(gpu_runner PRIVATE ${CUDA_DRIVER_INCLUDE_DIR})
-target_link_libraries(gpu_runner PRIVATE ${CUDA_DRIVER_LIBRARY})
+target_link_libraries(gpu_runner PRIVATE ptxjit_lib ${CUDA_DRIVER_LIBRARY})
+
+add_executable(ptxjit_benchmark benchmarks/compiler_benchmark.cpp)
+target_link_libraries(ptxjit_benchmark PRIVATE ptxjit_lib)

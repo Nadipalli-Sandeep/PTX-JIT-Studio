@@ -1,3 +1,4 @@
+#include "ptxjit/compiler.hpp"
 #include <cuda.h>
 #include <cmath>
 #include <iostream>
@@ -17,7 +18,7 @@ static void check(CUresult r, const char* op) {
 
 int main(int argc, char** argv) {
     if (argc != 4) {
-        std::cerr << "Usage: gpu_runner <compiled.cubin> <input> <expected>\n";
+        std::cerr << "Usage: gpu_runner <compiled.cubin> <expression> <input>\n";
         return 2;
     }
 
@@ -26,9 +27,14 @@ int main(int argc, char** argv) {
     CUdeviceptr d_out = 0;
 
     try {
-        float input = std::stof(argv[2]);
-        float expected = std::stof(argv[3]);
+        const std::string expression = argv[2];
+        const float input = std::stof(argv[3]);
+        const float expected = ptxjit::evaluate_expression(expression, input);
         float output = 0.0f;
+
+        if (!std::isfinite(expected)) {
+            throw std::runtime_error("CPU reference result is non-finite");
+        }
 
         check(cuInit(0), "cuInit");
 
@@ -42,24 +48,29 @@ int main(int argc, char** argv) {
               "cuModuleGetFunction");
         check(cuMemAlloc(&d_out, sizeof(float)), "cuMemAlloc");
 
-        void* args[] = {&d_out, &input};
+        void* args[] = {&d_out, const_cast<float*>(&input)};
         check(cuLaunchKernel(kernel, 1, 1, 1, 1, 1, 1,
                              0, nullptr, args, nullptr),
               "cuLaunchKernel");
         check(cuCtxSynchronize(), "cuCtxSynchronize");
         check(cuMemcpyDtoH(&output, d_out, sizeof(float)), "cuMemcpyDtoH");
 
-        std::cout << "GPU input:    " << input << '\n'
+        const float error = std::fabs(output - expected);
+        std::cout << "Expression:   " << expression << '\n'
+                  << "GPU input:    " << input << '\n'
                   << "GPU output:   " << output << '\n'
-                  << "CPU expected: " << expected << '\n';
+                  << "CPU reference:" << ' ' << expected << '\n'
+                  << "Absolute error: " << error << '\n';
 
-        if (!std::isfinite(output) ||
-            std::fabs(output - expected) > 1e-5f) {
-            std::cerr << "FAIL: result mismatch\n";
+        if (!std::isfinite(output) || error > 1e-5f) {
+            std::cerr << "FAIL: CPU and GPU results differ\n";
+            if (d_out) { cuMemFree(d_out); d_out = 0; }
+            if (mod) { cuModuleUnload(mod); mod = nullptr; }
+            if (ctx) { cuCtxDestroy(ctx); ctx = nullptr; }
             return 1;
         }
 
-        std::cout << "PASS: GPU result matches expected result\n";
+        std::cout << "PASS: CPU and GPU results match\n";
 
         check(cuMemFree(d_out), "cuMemFree");
         d_out = 0;
