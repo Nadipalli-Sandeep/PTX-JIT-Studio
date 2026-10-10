@@ -34,9 +34,41 @@ class Parser {
         if (pos == input.size()) return {TokenKind::End, ""};
         char c = input[pos];
         if (std::isdigit(static_cast<unsigned char>(c)) || c == '.') {
-            std::size_t start = pos++;
+            const std::size_t start = pos;
+            bool digits = false;
+
             while (pos < input.size() &&
-                   (std::isdigit(static_cast<unsigned char>(input[pos])) || input[pos] == '.')) ++pos;
+                   std::isdigit(static_cast<unsigned char>(input[pos]))) {
+                digits = true;
+                ++pos;
+            }
+
+            if (pos < input.size() && input[pos] == '.') {
+                ++pos;
+                while (pos < input.size() &&
+                       std::isdigit(static_cast<unsigned char>(input[pos]))) {
+                    digits = true;
+                    ++pos;
+                }
+            }
+
+            if (!digits)
+                throw std::runtime_error("Invalid numeric literal");
+
+            if (pos < input.size() &&
+                (input[pos] == 'e' || input[pos] == 'E')) {
+                ++pos;
+                if (pos < input.size() &&
+                    (input[pos] == '+' || input[pos] == '-')) ++pos;
+
+                const std::size_t exponent_start = pos;
+                while (pos < input.size() &&
+                       std::isdigit(static_cast<unsigned char>(input[pos]))) ++pos;
+
+                if (pos == exponent_start)
+                    throw std::runtime_error("Invalid numeric exponent");
+            }
+
             return {TokenKind::Number, input.substr(start, pos-start)};
         }
         if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
@@ -60,8 +92,14 @@ class Parser {
     std::unique_ptr<Node> primary() {
         if (current.kind == TokenKind::Number) {
             float v;
-            try { v = std::stof(current.text); }
-            catch (...) { throw std::runtime_error("Invalid numeric literal: " + current.text); }
+            try {
+                std::size_t consumed = 0;
+                v = std::stof(current.text, &consumed);
+                if (consumed != current.text.size() || !std::isfinite(v))
+                    throw std::runtime_error("Invalid numeric literal");
+            } catch (...) {
+                throw std::runtime_error("Invalid numeric literal: " + current.text);
+            }
             advance(); return std::make_unique<Node>(v);
         }
         if (current.kind == TokenKind::Identifier) {

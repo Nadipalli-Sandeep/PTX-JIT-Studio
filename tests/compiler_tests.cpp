@@ -95,6 +95,22 @@ int main() {
             [] { (void)ptxjit::compile_expression("(x + 2"); },
             "Unclosed parenthesis should be rejected"
         );
+        require_throws(
+            [] { (void)ptxjit::compile_expression("1.2.3"); },
+            "Malformed decimal should be rejected"
+        );
+        require_throws(
+            [] { (void)ptxjit::compile_expression("."); },
+            "A lone decimal point should be rejected"
+        );
+        require_throws(
+            [] { (void)ptxjit::compile_expression("1e+"); },
+            "Incomplete exponent should be rejected"
+        );
+        require_throws(
+            [] { (void)ptxjit::compile_expression("1e39"); },
+            "Float overflow should be rejected"
+        );
 
         std::cout << "All compiler and CPU evaluator tests passed.\n";
         return 0;
