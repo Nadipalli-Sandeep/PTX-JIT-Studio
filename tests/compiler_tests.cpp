@@ -2,6 +2,7 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -71,6 +72,67 @@ static void test_optimizer_equivalence() {
               << checks << '\n';
 }
 
+
+static std::string generate_expression(std::mt19937& rng, int depth) {
+    std::uniform_int_distribution<int> leaf_choice(0, 3);
+    std::uniform_int_distribution<int> constant(1, 5);
+    std::uniform_int_distribution<int> operation(0, 2);
+
+    if (depth == 0 || leaf_choice(rng) == 0) {
+        if (leaf_choice(rng) == 0)
+            return "x";
+        return std::to_string(constant(rng));
+    }
+
+    const char ops[] = {'+', '-', '*'};
+    const char op = ops[operation(rng)];
+
+    return "(" + generate_expression(rng, depth - 1) +
+           " " + op + " " +
+           generate_expression(rng, depth - 1) + ")";
+}
+
+static void test_randomized_optimizer_equivalence() {
+    std::mt19937 rng(20261011);
+    std::uniform_int_distribution<int> depth_distribution(1, 3);
+
+    const std::vector<float> inputs = {
+        -2.0f, -1.0f, -0.25f, 0.0f, 0.5f, 1.0f, 2.0f
+    };
+
+    constexpr int expression_count = 300;
+    std::size_t checks = 0;
+
+    for (int i = 0; i < expression_count; ++i) {
+        const std::string expression =
+            generate_expression(rng, depth_distribution(rng));
+        const auto compiled = ptxjit::compile_expression(expression);
+
+        for (float x : inputs) {
+            const float original =
+                ptxjit::evaluate_expression(expression, x);
+            const float optimized =
+                ptxjit::evaluate_expression(
+                    compiled.optimized_expression, x);
+
+            const float tolerance =
+                1e-4f * (1.0f + std::fabs(original));
+
+            require(
+                std::isfinite(original) && std::isfinite(optimized) &&
+                std::fabs(original - optimized) <= tolerance,
+                "Randomized optimizer mismatch; expression: " +
+                expression + ", input: " + std::to_string(x)
+            );
+            ++checks;
+        }
+    }
+
+    std::cout << "Randomized optimizer checks passed: "
+              << checks << " across " << expression_count
+              << " generated expressions.\\n";
+}
+
 int main() {
     try {
         // Compiler and optimizer tests.
@@ -97,6 +159,7 @@ int main() {
                 "Unexpected optimized AST node count");
 
         test_optimizer_equivalence();
+        test_randomized_optimizer_equivalence();
 
         // CPU evaluator: operators, precedence, parentheses and unary signs.
         check_value("x + 5", 2.5f, 7.5f);
