@@ -6,3 +6,6 @@ build/
 *.ptx
 *.log
 build-*/
+.venv/
+__pycache__/
+*.pyc

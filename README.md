@@ -117,3 +117,40 @@ See [docs/DESIGN.md](docs/DESIGN.md) for additional design details.
 - Add broader expression and numerical edge-case testing.
 - Improve PTX validation and compiler diagnostics.
 - Explore richer expression types and more advanced compiler optimizations.
+
+## Local Streamlit Frontend
+
+PTX-JIT Studio includes a local browser interface for compiling supported
+scalar expressions, inspecting generated PTX, and optionally assembling
+and executing the result on a compatible NVIDIA GPU.
+
+### Requirements
+
+- Python 3 and `venv`
+- CMake and a C++17 compiler
+- NVIDIA driver and CUDA tools (`ptxas`) for GPU execution
+
+### Run locally
+
+Build the C++ tools:
+
+```bash
+cmake -S . -B build
+cmake --build build -j2
+```
+
+Set up the frontend:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-frontend.txt
+streamlit run app.py
+```
+
+Open the local URL printed by Streamlit, usually `http://localhost:8501`.
+
+The interface supports the compiler's scalar expression syntax using `x`,
+floating-point constants, arithmetic operators, unary signs, and parentheses.
+GPU execution requires the CUDA tools and a compatible NVIDIA GPU. Compilation
+can still be explored without GPU execution by disabling the GPU option.
