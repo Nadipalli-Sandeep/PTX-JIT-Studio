@@ -14,65 +14,53 @@ A small C++17 compiler prototype for arithmetic expressions, with AST optimizati
 ```
 
 ## Current milestone
-- Recursive-descent parser with arithmetic precedence.
+
+- Recursive-descent parser with arithmetic precedence and unary signs.
 - AST-based constant folding and algebraic simplification.
-- PTX text emitter for a scalar expression.
-- Automated tests for optimization and input validation.
+- PTX generation for scalar arithmetic expressions using variable x.
+- CUDA Driver API runner for executing generated cubins.
+- CPU reference evaluator and CPU/GPU result comparison.
+- Compiler and CPU evaluator tests.
+- Compiler and GPU microbenchmarks.
 
-## Not implemented yet
-- CUDA Driver API module loading and kernel launch.
-- Validation with `ptxas` / `cuobjdump`.
-- Tensor/vector indexing and GPU benchmarks.
-
-See [docs/DESIGN.md](docs/DESIGN.md) for the scope and limitations.
-
-## Benchmarks
-
-PTX-JIT Studio provides separate compiler and GPU microbenchmarks.
-
-### Compiler benchmark
-
-Build and run:
+## Build and test
 
     cmake -S . -B build
     cmake --build build -j2
+    ctest --test-dir build --output-on-failure
+
+## GPU demo
+
+    ./scripts/demo.sh "x * 2 + 3" 4
+    ./scripts/demo.sh "x * 1 + (2 + 3)" 4
+
+The demo generates PTX, assembles a cubin with ptxas for sm_86,
+executes the kernel, and compares the result with the CPU evaluator.
+
+## Benchmarks
+
+Run the compiler benchmark:
+
     ./build/ptxjit_benchmark
 
-The benchmark warms up the compiler, then measures 5,000 compilations
-across five expressions. It measures parsing, optimization, and PTX string
-generation, excluding PTX assembly and GPU execution.
+It measures parsing, optimization, and PTX string generation across
+5,000 compilations after warm-up.
 
-Observed runs varied from approximately 1.39 to 1.95 microseconds per
-compilation. These are preliminary measurements from the development
-environment, not a universal performance guarantee.
-
-### GPU execution benchmark
-
-Generate a cubin and run the benchmark:
+Run the GPU benchmark after generating a cubin:
 
     ./build/ptxjit "x + 5" artifacts/gpu_benchmark.ptx
     ptxas -arch=sm_86 artifacts/gpu_benchmark.ptx -o artifacts/gpu_benchmark.cubin
     ./build/ptxjit_gpu_benchmark artifacts/gpu_benchmark.cubin "x + 5" 2.5
 
-The benchmark uses 100 warm-up launches and 10,000 measured launches.
-CUDA events measure elapsed time on the GPU timeline. The output is
-compared with the CPU evaluator.
+The GPU benchmark uses CUDA events around repeated kernel launches.
+Observed results are preliminary and specific to the test environment.
+A single-scalar kernel does not represent general GPU throughput or
+end-to-end host launch latency.
 
-Three earlier runs measured approximately 1.406 to 1.414 microseconds
-per launch. A later run measured 1.40768 microseconds per launch.
+## Limitations
 
-Limitations: this kernel evaluates one scalar expression for one input.
-Its timing is not general GPU arithmetic throughput or end-to-end host
-launch latency. Results depend on the GPU, driver, system load, and
-measurement method.
+- Supports scalar arithmetic expressions with one variable, x.
+- Does not implement general tensor/vector indexing or a full compiler IR.
+- Benchmarks are microbenchmarks and are not production performance claims.
 
-### Correctness tests
-
-Run compiler and CPU evaluator tests:
-
-    ctest --test-dir build --output-on-failure
-
-Run CPU-versus-GPU demonstrations:
-
-    ./scripts/demo.sh "x * 2 + 3" 4
-    ./scripts/demo.sh "x * 1 + (2 + 3)" 4
+See docs/DESIGN.md for additional design details.
