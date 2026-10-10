@@ -29,3 +29,7 @@ target_link_libraries(gpu_runner PRIVATE ptxjit_lib ${CUDA_DRIVER_LIBRARY})
 
 add_executable(ptxjit_benchmark benchmarks/compiler_benchmark.cpp)
 target_link_libraries(ptxjit_benchmark PRIVATE ptxjit_lib)
+
+add_executable(ptxjit_gpu_benchmark benchmarks/gpu_benchmark.cpp)
+target_include_directories(ptxjit_gpu_benchmark PRIVATE ${CUDA_DRIVER_INCLUDE_DIR})
+target_link_libraries(ptxjit_gpu_benchmark PRIVATE ptxjit_lib ${CUDA_DRIVER_LIBRARY})
