@@ -36,6 +36,41 @@ static void check_value(
     );
 }
 
+
+static void test_optimizer_equivalence() {
+    const std::vector<std::string> expressions = {
+        "x + 0", "0 + x", "x - 0", "x * 1", "1 * x",
+        "x / 1", "x * 1 + (2 + 3)", "(x + 0) * 2",
+        "((x + 3) - 3) * 1", "2 + 3 * (x - 1)",
+        "-(x + 2)", "--x", "x / (x + 20)",
+        "1.25 * x + 0.5", "10 - 6 / 2"
+    };
+    const std::vector<float> inputs = {
+        -10.0f, -3.25f, -1.0f, -0.5f, 0.0f,
+        0.25f, 1.0f, 2.5f, 10.0f
+    };
+
+    std::size_t checks = 0;
+    for (const auto& expression : expressions) {
+        const auto compiled = ptxjit::compile_expression(expression);
+        for (float x : inputs) {
+            const float original = ptxjit::evaluate_expression(expression, x);
+            const float optimized =
+                ptxjit::evaluate_expression(compiled.optimized_expression, x);
+            const float tolerance = 1e-4f * (1.0f + std::fabs(original));
+
+            require(
+                std::isfinite(original) && std::isfinite(optimized) &&
+                std::fabs(original - optimized) <= tolerance,
+                "Optimizer changed result for: " + expression
+            );
+            ++checks;
+        }
+    }
+    std::cout << "Optimizer equivalence checks passed: "
+              << checks << '\n';
+}
+
 int main() {
     try {
         // Compiler and optimizer tests.
@@ -60,6 +95,8 @@ int main() {
         auto c = ptxjit::compile_expression("x * 1 + (2 + 3)");
         require(c.optimized_node_count == 3,
                 "Unexpected optimized AST node count");
+
+        test_optimizer_equivalence();
 
         // CPU evaluator: operators, precedence, parentheses and unary signs.
         check_value("x + 5", 2.5f, 7.5f);
